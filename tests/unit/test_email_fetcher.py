@@ -4,6 +4,7 @@ from email.message import EmailMessage
 from unittest.mock import MagicMock
 
 import pytest
+from imapclient.exceptions import IMAPClientError
 
 from email_fetcher import EmailFetcher
 
@@ -40,7 +41,7 @@ def test_init_connects_and_searches(
 ) -> None:
     mock_imap_client.return_value.search.return_value = [1]
     fetcher = EmailFetcher()
-    mock_imap_client.assert_called_once_with("imap.example.com", ssl=True)
+    mock_imap_client.assert_called_once_with("imap.example.com", port=993, ssl=True)
     mock_imap_client.return_value.login.assert_called_once_with(
         "test@example.com", "test-password"
     )
@@ -133,7 +134,7 @@ def test_add_flag_noop_when_dry_run(mock_env_vars, mock_imap_client: MagicMock) 
 
 def test_has_flag(mock_env_vars, mock_imap_client: MagicMock) -> None:
     mock_imap_client.return_value.search.return_value = []
-    mock_imap_client.return_value.get_flags.return_value = [b"\\Seen", "SortBuddy"]
+    mock_imap_client.return_value.get_flags.return_value = {1: [b"\\Seen", b"SortBuddy"]}
     fetcher = EmailFetcher()
     assert fetcher.has_flag(1, "SortBuddy")
     assert not fetcher.has_flag(1, "Missing")
@@ -148,15 +149,14 @@ def test_move_message(mock_env_vars, mock_imap_client: MagicMock) -> None:
     mock_imap_client.return_value.expunge.assert_called_once()
 
 
-def test_move_message_swallows_exception(
-    mock_env_vars, mock_imap_client: MagicMock, capsys
+def test_move_message_raises_and_logs_imap_error(
+    mock_env_vars, mock_imap_client: MagicMock
 ) -> None:
     mock_imap_client.return_value.search.return_value = []
-    mock_imap_client.return_value.copy.side_effect = Exception("IMAP failure")
+    mock_imap_client.return_value.copy.side_effect = IMAPClientError("IMAP failure")
     fetcher = EmailFetcher()
-    fetcher.move_message(1, "AI-Work")
-    captured = capsys.readouterr()
-    assert "IMAP failure" in captured.out
+    with pytest.raises(IMAPClientError, match="IMAP failure"):
+        fetcher.move_message(1, "AI-Work")
 
 
 def test_close(mock_env_vars, mock_imap_client: MagicMock) -> None:

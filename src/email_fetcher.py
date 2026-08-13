@@ -1,102 +1,66 @@
-import email
-import os
-from imapclient import IMAPClient
-from bs4 import BeautifulSoup
-from util import limit_consecutive_linefeeds, safe_decode
+"""Compatibility wrapper around the new email service layer."""
+
+from __future__ import annotations
+
+import socket
+from typing import Any
+
+import imapclient
+from imapclient.exceptions import IMAPClientError, LoginError
+from loguru import logger
+
+from config import EmailConfig
+from email_clients.factory import create_email_provider
+
+IMAPClient = imapclient.IMAPClient
+
 
 class EmailFetcher:
+    """Thin compatibility wrapper that delegates to the new email providers."""
 
-    def __init__(self, dry_run=False):
-        self.host = os.getenv("IMAP_HOST")
-        self.username = os.getenv("EMAIL_USERNAME")
-        self.password = os.getenv("EMAIL_PASSWORD")
+    def __init__(self, dry_run: bool = False) -> None:
         self.dry_run = dry_run
+        self._provider = create_email_provider(
+            EmailConfig(),
+            dry_run=dry_run,
+            imap_client_class=IMAPClient,
+        )
 
-        self.imapclient = IMAPClient(self.host, ssl=True)
-        self.imapclient.login(self.username, self.password)
-        self.imapclient.select_folder('INBOX', readonly=False)
+    @property
+    def unseen_ids(self) -> list[int]:
+        """List of unseen message ids waiting to be processed."""
+        return self._provider.unseen_ids
 
-        # Search for unseen emails without the 'SortBuddy' flag
-        self.unseen_ids = self.search_unseen_without_flag('SortBuddy')
-        self.current_index = 0
+    @property
+    def current_index(self) -> int:
+        """Index of the next message to fetch."""
+        return self._provider.current_index
 
-    def search_unseen_without_flag(self, flag):
-        # IMAP search criteria for unseen emails without the specific flag
-        search_criteria = ['UNSEEN', 'NOT', 'KEYWORD', flag]
+    @current_index.setter
+    def current_index(self, value: int) -> None:
+        self._provider.current_index = value
 
-        # Perform the search
-        unseen_without_flag_ids = self.imapclient.search(search_criteria)
+    def list_ai_folders(self) -> list[str]:
+        return self._provider.list_ai_folders()
 
-        return unseen_without_flag_ids
+    def fetch_next_message(self) -> dict[str, Any] | None:
+        return self._provider.fetch_next_message()
 
-    def list_ai_folders(self):
-        folders = self.imapclient.list_folders()
-        ai_folders = [folder[2] for folder in folders if folder[2].startswith(os.getenv("FOLDER_PREFIX"))]
-        return ai_folders
+    def add_flag(self, message_id: int | str, flag: str) -> None:
+        self._provider.add_flag(message_id, flag)
 
-    def fetch_next_message(self):
-        if self.current_index >= len(self.unseen_ids):
-            return None
+    def has_flag(self, message_id: int | str, flag: str) -> bool:
+        return self._provider.has_flag(message_id, flag)
 
-        msg_id = self.unseen_ids[self.current_index]
-        self.current_index += 1
+    def has_more_messages(self) -> bool:
+        return self._provider.has_more_messages()
 
-        message_data = self.imapclient.fetch(msg_id, ['ENVELOPE', 'BODY[TEXT]', 'RFC822'])[msg_id]
-        envelope = message_data[b'ENVELOPE']
-        email_message = email.message_from_bytes(message_data[b'RFC822'])
-        text_content = ""
-
-        if email_message.is_multipart():
-            for part in email_message.walk():
-                if part.get_content_type() == 'text/plain':
-                    text_content += safe_decode(part.get_payload(decode=True))
-                elif part.get_content_type() == 'text/html':
-                    html_content = safe_decode(part.get_payload(decode=True))
-                    soup = BeautifulSoup(html_content, 'html.parser')
-                    text_content += soup.get_text()
-        else:
-            if email_message.get_content_type() == 'text/plain':
-                text_content = safe_decode(email_message.get_payload(decode=True))
-            elif email_message.get_content_type() == 'text/html':
-                html_content = safe_decode(email_message.get_payload(decode=True))
-                soup = BeautifulSoup(html_content, 'html.parser')
-                text_content = soup.get_text()
-
-        text_content = limit_consecutive_linefeeds(text_content.strip())
-
-        self.set_unseen(msg_id)
-        self.add_flag(msg_id, 'SortBuddy')
-
-        return {
-            "id": msg_id,
-            "subject": safe_decode(envelope.subject) if envelope.subject else "(No Subject)",
-            "from": f"{safe_decode(envelope.from_[0].mailbox)}@{safe_decode(envelope.from_[0].host)}",
-            "body": text_content,
-            "responses": []
-        }
-
-    def add_flag(self, message_id, flag):
-        if not self.dry_run:
-            self.imapclient.add_flags(message_id, [flag])
-
-    def has_flag(self, message_id, flag):
-        return flag in self.imapclient.get_flags(message_id)
-
-    def has_more_messages(self):
-        return self.current_index < len(self.unseen_ids)
-
-    def set_unseen(self, message_id):
-        self.imapclient.remove_flags(message_id, [b'\\Seen'])
-
-    def move_message(self, message_id, target_folder):
+    def move_message(self, message_id: int | str, target_folder: str) -> None:
         try:
-            # Copy the message to the target folder
-            self.imapclient.copy(message_id, target_folder)
-            self.imapclient.delete_messages([message_id])
-            self.imapclient.expunge()
+            self._provider.move_message(message_id, target_folder)
+        except (IMAPClientError, LoginError, socket.error) as exc:
+            logger.exception("Failed to move message %s to %s", message_id, target_folder)
+            raise
 
-        except Exception as e:
-            print(f"An error occurred: {e}")
-
-    def close(self):
-        self.imapclient.logout()
+    def close(self) -> None:
+        self._provider.close()

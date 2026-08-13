@@ -1,0 +1,5 @@
+accounts:
+  - name: bad
+    provider: unknown
+    username: user@bad.com
+    password: secret

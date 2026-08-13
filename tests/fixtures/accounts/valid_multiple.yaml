@@ -1,0 +1,19 @@
+accounts:
+  - name: personal-gmail
+    provider: gmail
+    username: user@gmail.com
+    app_password: ${GMAIL_APP_PASSWORD}
+    folder_prefix: AI-
+    enabled: true
+  - name: work
+    provider: generic
+    imap_host: imap.example.com
+    username: user@example.com
+    password: secret
+    enabled: true
+  - name: personal-yahoo
+    provider: yahoo
+    username: user@yahoo.com
+    app_password: ${YAHOO_APP_PASSWORD}
+    folder_prefix: AI-Mail-
+    enabled: false

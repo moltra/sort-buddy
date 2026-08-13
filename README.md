@@ -8,6 +8,7 @@ This is a very simple python program that leverages OpenAI or Ollama to classify
 
 - **Multiple AI Provider Support**: Uses OpenAI (ChatGPT), Ollama, or any OpenAI-compatible API to determine the folder where each email should be placed
 - **Multi-Provider Email Support**: Supports generic IMAP, Gmail (with app passwords), and Yahoo Mail (with app passwords)
+- **Multi-Account Mode**: Configure and process multiple email accounts in a single run
 - Fetches unread emails from the specified IMAP server folders
 - Supports a dry-run mode to simulate processing without actual folder movement
 - Can optionally display prompts used to query AI for debugging
@@ -159,18 +160,128 @@ FOLDER_PREFIX="AI-"  # Prefix for AI-sorted folders
 - Legacy `OPENAI_*` variables are automatically mapped to `LLM_*` when using OpenAI provider
 - Generic IMAP variables (`IMAP_HOST`, `EMAIL_USERNAME`, `EMAIL_PASSWORD`) are used when `EMAIL_PROVIDER=generic`
 
+## Multi-Account Mode
+
+Sort Buddy supports processing multiple email accounts in a single run using a YAML configuration file. This is useful if you have multiple email accounts (e.g., personal Gmail, work Exchange, personal Yahoo) and want to process them all at once.
+
+### accounts.yaml Format
+
+Create an `accounts.yaml` file in the project root. Copy `accounts.yaml.example` as a template:
+
+```bash
+cp accounts.yaml.example accounts.yaml
+```
+
+The file format is:
+
+```yaml
+accounts:
+  - name: personal-gmail
+    provider: gmail
+    username: user@gmail.com
+    app_password: ${GMAIL_APP_PASSWORD}
+    folder_prefix: AI-
+    enabled: true
+
+  - name: work-exchange
+    provider: generic
+    imap_host: mail.company.com
+    imap_port: 993
+    imap_use_ssl: true
+    username: work@company.com
+    password: ${WORK_EMAIL_PASSWORD}
+    folder_prefix: SB-
+    enabled: true
+
+  - name: personal-yahoo
+    provider: yahoo
+    username: user@yahoo.com
+    app_password: ${YAHOO_APP_PASSWORD}
+    folder_prefix: AI-Mail-
+    enabled: false
+```
+
+### Environment Variable References
+
+Credentials in `accounts.yaml` can reference environment variables using `${VAR_NAME}` syntax. This keeps credentials out of version control while allowing flexible account configuration.
+
+Example:
+```yaml
+password: ${WORK_EMAIL_PASSWORD}
+```
+
+The variable is resolved from your `.env` file or shell environment. If the variable is not set, the literal string `${VAR_NAME}` is used (useful for testing).
+
+### CLI Usage
+
+Use the `--accounts` flag to enable multi-account mode:
+
+```bash
+# Process all enabled accounts
+./run.sh --accounts accounts.yaml --dry-run
+
+# Process a specific account only
+./run.sh --accounts accounts.yaml --account work-exchange --limit 10
+
+# Process with other flags
+./run.sh --accounts accounts.yaml --show-prompt --limit 5
+```
+
+### CLI Flags for Multi-Account Mode
+
+- `--accounts <file>`: Path to the accounts.yaml configuration file. Enables multi-account mode.
+- `--account <name>`: (Optional) Process only the named account from the accounts file.
+
+All other flags (`--dry-run`, `--limit`, `--show-prompt`, etc.) apply to each account being processed.
+
+### Enabling/Disabling Accounts
+
+Set `enabled: false` in `accounts.yaml` to temporarily disable an account without removing its configuration:
+
+```yaml
+  - name: personal-yahoo
+    provider: yahoo
+    username: user@yahoo.com
+    app_password: ${YAHOO_APP_PASSWORD}
+    folder_prefix: AI-Mail-
+    enabled: false  # Temporarily disabled
+```
+
+### Backward Compatibility
+
+The single-account mode using `.env` variables continues to work unchanged. If you don't use the `--accounts` flag, Sort Buddy falls back to the legacy environment-based configuration.
+
+### Output Format
+
+When processing multiple accounts, the output includes the account name in brackets:
+
+```
+[personal-gmail] Processing 5 messages...
+[personal-gmail] Done. Processed 5 messages.
+[work-exchange] Processing 3 messages...
+[work-exchange] Done. Processed 3 messages.
+```
+
 ## Running the Project
 
 ### Using the run.sh script
 
 ```bash
+# Single-account mode (legacy)
 ./run.sh --dry-run
+
+# Multi-account mode
+./run.sh --accounts accounts.yaml --dry-run
 ```
 
 ### Running directly with Poetry
 
 ```bash
+# Single-account mode
 poetry run python main.py --dry-run --show-prompt
+
+# Multi-account mode
+poetry run python main.py --accounts accounts.yaml --dry-run
 ```
 
 ### Command-line Options
@@ -181,6 +292,8 @@ poetry run python main.py --dry-run --show-prompt
 - `--save-to-json`: Save messages and the resulting sort to a file, for benchmarking different LLMs
 - `--use-json`: Instead of connecting to an IMAP server, use a previously saved file as input
 - `--print-rate-limits`: Output the [rate limit](https://platform.openai.com/docs/guides/rate-limits) headers provided by OpenAI (not applicable for Ollama)
+- `--accounts <file>`: Path to a multi-account YAML configuration file
+- `--account <name>`: Process only the named account from the accounts file
 
 ## Testing
 

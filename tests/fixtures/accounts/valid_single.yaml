@@ -1,0 +1,9 @@
+accounts:
+  - name: work
+    provider: generic
+    imap_host: imap.example.com
+    imap_port: 993
+    imap_use_ssl: true
+    username: user@example.com
+    password: secret
+    folder_prefix: AI-

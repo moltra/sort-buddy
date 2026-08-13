@@ -11,6 +11,10 @@ __pycache__
 .env
 *.json
 
+# Account configuration (contains credentials)
+accounts.yaml
+accounts.yml
+
 # Test and coverage artifacts
 .coverage
 coverage.xml

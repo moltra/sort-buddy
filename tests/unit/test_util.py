@@ -23,9 +23,23 @@ def test_remove_prefix_ignores_non_match(set_folder_prefix: None) -> None:
     assert util.remove_prefix("Inbox") == "Inbox"
 
 
+def test_remove_prefix_uses_explicit_prefix() -> None:
+    assert util.remove_prefix("Custom-Work", prefix="Custom-") == "Work"
+
+
+def test_remove_prefix_falls_back_to_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FOLDER_PREFIX", "Env-")
+    assert util.remove_prefix("Env-Work") == "Work"
+
+
 def test_get_stripped_folder_list(set_folder_prefix: None) -> None:
     folders = ["AI-Work", "AI-Personal", "Inbox"]
     assert util.get_stripped_folder_list(folders) == ["Work", "Personal", "Inbox"]
+
+
+def test_get_stripped_folder_list_with_explicit_prefix() -> None:
+    folders = ["Custom-Work", "Custom-Personal", "Inbox"]
+    assert util.get_stripped_folder_list(folders, prefix="Custom-") == ["Work", "Personal", "Inbox"]
 
 
 def test_limit_consecutive_linefeeds() -> None:

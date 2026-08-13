@@ -1,30 +1,35 @@
-from colorama import Fore, Style
+from __future__ import annotations
+
+from colorama import Fore, Style  # type: ignore[import-untyped]
 import json
 import os
 import re
 import sys
+from typing import Any
 
-def remove_prefix(folder_name):
-    if folder_name.startswith(os.environ.get("FOLDER_PREFIX")):
-        return folder_name[len(os.environ.get("FOLDER_PREFIX")):]
-    return folder_name
+def remove_prefix(name: str, prefix: str | None = None) -> str:
+    if prefix is None:
+        prefix = os.environ.get("FOLDER_PREFIX", "")
+    if name.startswith(prefix):
+        return name[len(prefix):]
+    return name
 
-def get_stripped_folder_list(folder_list):
-    return [remove_prefix(folder) for folder in folder_list]
+def get_stripped_folder_list(folders: list[str], prefix: str | None = None) -> list[str]:
+    return [remove_prefix(folder, prefix) for folder in folders]
 
-def limit_consecutive_linefeeds(text, max_linefeeds=2):
+def limit_consecutive_linefeeds(text: str, max_linefeeds: int = 2) -> str:
     """Limit consecutive linefeeds to `max_linefeeds`."""
     pattern = r'(\n|\r\n){%d,}' % (max_linefeeds + 1)
     replacement = '\n' * max_linefeeds
     return re.sub(pattern, replacement, text)
 
-def safe_decode(byte_content):
+def safe_decode(byte_content: bytes) -> str:
     try:
         return byte_content.decode('utf-8')
     except UnicodeDecodeError:
         return byte_content.decode('latin-1', errors='replace')
 
-def save_results_to_json(ai_folders, messages, filename):
+def save_results_to_json(ai_folders: list[str], messages: list[Any], filename: str) -> None:
     results = {
         "ai_folders": ai_folders,
         "messages": messages
@@ -32,15 +37,15 @@ def save_results_to_json(ai_folders, messages, filename):
     with open(filename, 'w') as file:
         json.dump(results, file, indent=4)
 
-def signal_handler(signal, frame):
+def signal_handler(signal: int, frame: Any) -> None:
     print("\nExiting...")
     sys.exit(0)
 
-def get_terminal_width():
+def get_terminal_width() -> int:
     try:
         return os.get_terminal_size().columns
     except OSError:
         return 80
 
-def print_line():
+def print_line() -> None:
     print(Fore.YELLOW + "-" * get_terminal_width() + Style.RESET_ALL)

@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from pytest_mock import MockerFixture
 
 from main import main
 
@@ -93,3 +94,108 @@ def test_main_dry_run_does_not_move(
 
     mock_imap_client.return_value.copy.assert_not_called()
     mock_imap_client.return_value.delete_messages.assert_not_called()
+
+
+def test_main_accounts_processes_enabled(
+    mock_env_vars: dict[str, str],
+    mock_openai_client: MagicMock,
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    account_file = tmp_path / "accounts.yaml"
+    account_file.write_text(
+        """
+accounts:
+  - name: personal-gmail
+    provider: gmail
+    username: user@gmail.com
+    app_password: app-pw
+    folder_prefix: AI-
+    enabled: true
+  - name: work
+    provider: generic
+    imap_host: imap.example.com
+    username: user@example.com
+    password: secret
+    enabled: true
+  - name: disabled
+    provider: generic
+    imap_host: imap.example.com
+    username: user@example.com
+    password: secret
+    enabled: false
+"""
+    )
+
+    mock_process = mocker.patch("main.process_account", return_value={"messages_processed": 1})
+
+    main(accounts_file=str(account_file), limit=1)
+
+    assert mock_process.call_count == 2
+    calls = [call.args[0].name for call in mock_process.call_args_list]
+    assert "personal-gmail" in calls
+    assert "work" in calls
+    assert mock_process.call_args.kwargs["limit"] == 1
+
+
+def test_main_account_named_processes_one(
+    mock_env_vars: dict[str, str],
+    mock_openai_client: MagicMock,
+    mocker: MockerFixture,
+    tmp_path: Path,
+) -> None:
+    account_file = tmp_path / "accounts.yaml"
+    account_file.write_text(
+        """
+accounts:
+  - name: personal-gmail
+    provider: gmail
+    username: user@gmail.com
+    app_password: app-pw
+    folder_prefix: AI-
+    enabled: true
+  - name: work
+    provider: generic
+    imap_host: imap.example.com
+    username: user@example.com
+    password: secret
+    enabled: true
+"""
+    )
+
+    mock_process = mocker.patch("main.process_account", return_value={"messages_processed": 1})
+
+    main(accounts_file=str(account_file), account_name="work")
+
+    assert mock_process.call_count == 1
+    assert mock_process.call_args[0][0].name == "work"
+
+
+def test_main_accounts_missing_file_exits(
+    mock_env_vars: dict[str, str],
+    mock_openai_client: MagicMock,
+) -> None:
+    with pytest.raises(SystemExit):
+        main(accounts_file="/does/not/exist.yaml")
+
+
+def test_main_accounts_disabled_named_exits(
+    mock_env_vars: dict[str, str],
+    mock_openai_client: MagicMock,
+    tmp_path: Path,
+) -> None:
+    account_file = tmp_path / "accounts.yaml"
+    account_file.write_text(
+        """
+accounts:
+  - name: disabled
+    provider: generic
+    imap_host: imap.example.com
+    username: user@example.com
+    password: secret
+    enabled: false
+"""
+    )
+
+    with pytest.raises(SystemExit):
+        main(accounts_file=str(account_file), account_name="disabled")

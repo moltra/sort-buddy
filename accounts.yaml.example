@@ -1,0 +1,35 @@
+# Multi-account configuration for Sort Buddy
+#
+# Copy this file to accounts.yaml and update it with your own accounts.
+# Keep accounts.yaml out of version control (it is already ignored by .gitignore).
+#
+# Credentials can be referenced from environment variables using ${VAR_NAME}.
+# Environment variables are loaded from .env or your shell.
+#
+# Use `--accounts accounts.yaml` to process all enabled accounts, or
+# `--accounts accounts.yaml --account <name>` to process a single account.
+
+accounts:
+  - name: personal-gmail
+    provider: gmail
+    username: user@gmail.com
+    app_password: ${GMAIL_APP_PASSWORD}
+    folder_prefix: AI-
+    enabled: true
+
+  - name: work-exchange
+    provider: generic
+    imap_host: mail.company.com
+    imap_port: 993
+    imap_use_ssl: true
+    username: work@company.com
+    password: ${WORK_EMAIL_PASSWORD}
+    folder_prefix: SB-
+    enabled: true
+
+  - name: personal-yahoo
+    provider: yahoo
+    username: user@yahoo.com
+    app_password: ${YAHOO_APP_PASSWORD}
+    folder_prefix: AI-Mail-
+    enabled: false

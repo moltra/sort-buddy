@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from accounts_config import AccountConfig
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -54,6 +57,19 @@ class LLMConfig(BaseSettings):
 
         return self
 
+    _REDACT_FIELDS: frozenset[str] = frozenset({"llm_api_key"})
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        data = self.model_dump()
+        for field in self._REDACT_FIELDS:
+            if field in data and data[field] is not None:
+                data[field] = "***"
+        field_repr = ", ".join(f"{k}={v!r}" for k, v in data.items())
+        return f"{self.__class__.__name__}({field_repr})"
+
 
 class EmailConfig(BaseSettings):
     """Email provider configuration loaded from environment variables."""
@@ -90,6 +106,42 @@ class EmailConfig(BaseSettings):
 
     folder_prefix: str = "AI-"
 
+    @classmethod
+    def from_account_config(cls, account: AccountConfig) -> "EmailConfig":
+        """Create an EmailConfig from an AccountConfig."""
+        resolved = account.resolve_env_vars()
+        data: dict[str, Any] = {
+            "email_provider": resolved.provider,
+        }
+
+        if resolved.imap_port is not None:
+            data["imap_port"] = resolved.imap_port
+        if resolved.imap_use_ssl is not None:
+            data["imap_use_ssl"] = resolved.imap_use_ssl
+        if resolved.folder_prefix is not None:
+            data["folder_prefix"] = resolved.folder_prefix
+
+        if resolved.provider == "generic":
+            data.update(
+                imap_host=resolved.imap_host,
+                email_username=resolved.username,
+                email_password=resolved.password,
+            )
+        elif resolved.provider == "gmail":
+            data.update(
+                gmail_username=resolved.username,
+                gmail_app_password=resolved.app_password,
+                gmail_label_prefix=resolved.folder_prefix,
+            )
+        elif resolved.provider == "yahoo":
+            data.update(
+                yahoo_username=resolved.username,
+                yahoo_app_password=resolved.app_password,
+                yahoo_folder_prefix=resolved.folder_prefix,
+            )
+
+        return cls(**data)
+
     @model_validator(mode="after")
     def _configure(self) -> "EmailConfig":
         """Validate provider-specific requirements."""
@@ -112,3 +164,22 @@ class EmailConfig(BaseSettings):
                 )
 
         return self
+
+    _REDACT_FIELDS: frozenset[str] = frozenset(
+        {
+            "email_password",
+            "gmail_app_password",
+            "yahoo_app_password",
+        }
+    )
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        data = self.model_dump()
+        for field in self._REDACT_FIELDS:
+            if field in data and data[field] is not None:
+                data[field] = "***"
+        field_repr = ", ".join(f"{k}={v!r}" for k, v in data.items())
+        return f"{self.__class__.__name__}({field_repr})"

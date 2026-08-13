@@ -5,8 +5,8 @@ from __future__ import annotations
 import socket
 from typing import Any
 
-import imapclient
-from imapclient.exceptions import IMAPClientError, LoginError
+import imapclient  # type: ignore[import-untyped]
+from imapclient.exceptions import IMAPClientError, LoginError  # type: ignore[import-untyped]
 from loguru import logger
 
 from config import EmailConfig
@@ -18,10 +18,15 @@ IMAPClient = imapclient.IMAPClient
 class EmailFetcher:
     """Thin compatibility wrapper that delegates to the new email providers."""
 
-    def __init__(self, dry_run: bool = False) -> None:
+    def __init__(
+        self,
+        dry_run: bool = False,
+        email_config: EmailConfig | None = None,
+    ) -> None:
         self.dry_run = dry_run
+        config = email_config if email_config is not None else EmailConfig()
         self._provider = create_email_provider(
-            EmailConfig(),
+            config,
             dry_run=dry_run,
             imap_client_class=IMAPClient,
         )

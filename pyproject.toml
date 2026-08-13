@@ -12,7 +12,6 @@ openai = "^1.26.0"
 python-dotenv = "^1.0.1"
 imapclient = "^3.0.1"
 beautifulsoup4 = "^4.12.3"
-lxml = "^5.2.1"
 colorama = "^0.4.6"
 pydantic = "^2.0.0"
 pydantic-settings = "^2.0.0"
@@ -27,6 +26,10 @@ pytest-socket = "^0.6.0"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.0.0"
+deptry = "^0.12.0"
+
+[tool.deptry]
+extend_exclude = ["tests"]
 
 [tool.mypy]
 python_version = "3.10"

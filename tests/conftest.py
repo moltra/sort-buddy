@@ -48,19 +48,20 @@ def mock_openai_client(mocker: MockerFixture) -> MagicMock:
     """
     Fixture that provides a mocked OpenAI client.
 
-    Patches the OpenAI client to avoid real API calls.
-    Returns a mock object that can be configured in tests.
+    Patches ``openai.OpenAI`` so that ``client.chat.completions.with_raw_response.create``
+    returns the client itself, allowing tests to set ``client.parse.return_value.choices``
+    as before. Avoids real API calls.
 
     Returns:
-        MagicMock: Mocked OpenAI client
+        MagicMock: Mocked OpenAI class
     """
-    mock_client = mocker.patch(
-        "openai.chat.completions.with_raw_response.create",
-    )
-    mock_client.return_value.parse.return_value.choices = [
+    mock_openai = mocker.patch("openai.OpenAI")
+    client = mock_openai.return_value
+    client.chat.completions.with_raw_response.create.return_value = client
+    client.parse.return_value.choices = [
         MagicMock(message=MagicMock(content="Inbox: test response"))
     ]
-    return mock_client
+    return mock_openai
 
 
 @pytest.fixture

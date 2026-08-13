@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 import signal
 import sys
@@ -7,6 +6,7 @@ from typing import Any
 from colorama import Fore, Style, init as colorama_init  # type: ignore[import-untyped]
 from datetime import datetime
 from dotenv import load_dotenv
+from loguru import logger
 from email_fetcher import EmailFetcher
 from json_email_fetcher import JSONEmailFetcher
 from ai import get_ai_response_from_message, configure_openai
@@ -14,8 +14,6 @@ from util import get_stripped_folder_list, save_results_to_json, signal_handler,
 
 from accounts_config import AccountsConfig
 from account_processor import process_account
-
-logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -201,10 +199,8 @@ if __name__ == "__main__":
     parser.add_argument("--account", type=str, help="Process only the named account from the accounts file.")
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(name)s - %(levelname)s - %(message)s",
-    )
+    logger.remove()
+    logger.add(sys.stderr, level="INFO")
 
     main(
         dry_run=args.dry_run,

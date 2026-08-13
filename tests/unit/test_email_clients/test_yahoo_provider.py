@@ -30,7 +30,6 @@ def test_configure_sets_yahoo_defaults(mocker: MockerFixture) -> None:
 
 
 def test_configure_missing_credentials_raises() -> None:
-    config = EmailConfig(email_provider="yahoo")
     provider = YahooProvider()
     with pytest.raises(ValueError, match="Yahoo username and app password"):
-        provider.configure(config)
+        EmailConfig(email_provider="yahoo")

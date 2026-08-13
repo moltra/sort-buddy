@@ -32,7 +32,6 @@ def test_configure_sets_gmail_defaults(mocker: MockerFixture) -> None:
 
 
 def test_configure_missing_credentials_raises() -> None:
-    config = EmailConfig(email_provider="gmail")
     provider = GmailProvider()
     with pytest.raises(ValueError, match="Gmail username and app password"):
-        provider.configure(config)
+        EmailConfig(email_provider="gmail")

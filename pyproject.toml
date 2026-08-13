@@ -41,6 +41,9 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 addopts = "--cov=src --cov-report=term-missing --cov-report=xml --disable-socket"
+markers = [
+    "live: tests that require live Ollama and/or IMAP services",
+]
 
 [build-system]
 requires = ["poetry-core"]

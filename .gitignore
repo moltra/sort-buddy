@@ -10,3 +10,10 @@ __pycache__
 .idea/
 .env
 *.json
+
+# Test and coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.pytest_cache/

@@ -16,6 +16,7 @@ class LLMConfig(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     llm_provider: str = "openai"
@@ -59,6 +60,13 @@ class LLMConfig(BaseSettings):
 
     _REDACT_FIELDS: frozenset[str] = frozenset({"llm_api_key"})
 
+    def __init__(self, **values: Any) -> None:
+        """Initialize with explicit keyword values taking priority over env."""
+        super().__init__(**values)
+        for key, value in values.items():
+            if key in type(self).model_fields:
+                object.__setattr__(self, key, value)
+
     def __str__(self) -> str:
         return self.__repr__()
 
@@ -78,6 +86,7 @@ class EmailConfig(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     email_provider: str = "generic"
@@ -172,6 +181,13 @@ class EmailConfig(BaseSettings):
             "yahoo_app_password",
         }
     )
+
+    def __init__(self, **values: Any) -> None:
+        """Initialize with explicit keyword values taking priority over env."""
+        super().__init__(**values)
+        for key, value in values.items():
+            if key in type(self).model_fields:
+                object.__setattr__(self, key, value)
 
     def __str__(self) -> str:
         return self.__repr__()

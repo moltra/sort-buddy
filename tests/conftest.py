@@ -102,3 +102,27 @@ def sample_email_message() -> dict[str, str]:
         "body": "This is a test email body.",
         "folder": "INBOX",
     }
+
+
+@pytest.fixture(autouse=True)
+def baseline_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Baseline environment for all tests.
+
+    Provides minimal values so that any test that instantiates a
+    pydantic-settings config without explicit arguments still passes
+    validation.  Existing fixtures or tests that use ``monkeypatch`` to
+    override these values will take precedence, and the original
+    environment is restored after each test.
+    """
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_MODEL", "gpt-4")
+    monkeypatch.setenv("LLM_BASE_URL", "https://api.openai.com/v1/")
+    monkeypatch.setenv("EMAIL_PROVIDER", "generic")
+    monkeypatch.setenv("IMAP_HOST", "imap.test.com")
+    monkeypatch.setenv("IMAP_PORT", "993")
+    monkeypatch.setenv("IMAP_USE_SSL", "true")
+    monkeypatch.setenv("EMAIL_USERNAME", "test@example.com")
+    monkeypatch.setenv("EMAIL_PASSWORD", "test-password")
+    monkeypatch.setenv("FOLDER_PREFIX", "AI-")

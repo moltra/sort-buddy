@@ -2,18 +2,48 @@
 
 from __future__ import annotations
 
-from util import get_stripped_folder_list
+from util import get_stripped_folder_list, remove_prefix
 
+
+FOLDER_DEFINITIONS: dict[str, str] = {
+    "Important": "Genuinely time-sensitive or personal mail that requires prompt attention.",
+    "Spam": "Unwanted, unsolicited, or suspicious bulk mail.",
+    "Newsletters": "Marketing, promotions, newsletters, coupons, and recurring mass mail.",
+    "Mailing-List": "Mailing-list or group-list messages and discussions.",
+    "Work": "Professional, job-related, or business correspondence.",
+    "Personal": "Private, non-work, or individually addressed messages.",
+}
 
 SYSTEM_PROMPT_TEMPLATE = (
-    "You are an email classifier.  I will give you an email, "
-    "and you will respond with the name of the best folder "
-    "for that email, followed by a colon and a space.  If an "
-    "email seems genuine, or too hard, please respond with "
-    "'Inbox'.  After the colon and space, please provide a "
-    "brief explanation of why you chose that folder. "
-    "The available folders are: {folders} and Inbox\n"
+    "You are an email classifier. Pick exactly one folder for the email below.\n\n"
+    "Available folders:\n"
+    "{folder_list}\n"
+    "Use Inbox only when the email is too ambiguous to classify.\n\n"
+    "Rules:\n"
+    "- Respond with exactly this format and nothing else: <Folder>: <brief explanation>\n"
+    "- Do not include introductions, conclusions, code blocks, quotes, or extra lines.\n"
+    "- Marketing, promotions, newsletters, coupons, and unsolicited mass mail "
+    "belong in Newsletters or Spam, never in Important.\n"
+    "- Important is only for genuinely time-sensitive or personal mail.\n"
+    "- If none of the folders clearly fit and the email is not ambiguous, choose Inbox.\n"
 )
+
+
+def _folder_definitions(folders: list[str]) -> str:
+    """Build a one-sentence definition line for each available folder."""
+    lines = []
+    for folder in folders:
+        definition = FOLDER_DEFINITIONS.get(folder, "Use the name as a guide and classify accordingly.")
+        lines.append(f"- {folder}: {definition}")
+    return "\n".join(lines)
+
+
+def _clean_folder_name(folder: str) -> str:
+    """Strip surrounding whitespace, quotes, and backticks from a folder name."""
+    folder = folder.strip()
+    while len(folder) >= 2 and folder[0] in ('"', "'", "`") and folder[-1] == folder[0]:
+        folder = folder[1:-1].strip()
+    return folder
 
 
 def generate_prompt(
@@ -24,7 +54,8 @@ def generate_prompt(
     """Build the system and user prompts for an email message."""
     stripped_folders = get_stripped_folder_list(folders)
 
-    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(folders=", ".join(stripped_folders))
+    folder_list = _folder_definitions(stripped_folders)
+    system_prompt = SYSTEM_PROMPT_TEMPLATE.format(folder_list=folder_list)
 
     prompt = f"Email Subject: {message['subject']}\n"
     prompt += f"Email From: {message['from']}\n"
@@ -39,18 +70,28 @@ def generate_prompt(
 
 def parse_classification(content: str, folders: list[str]) -> tuple[str, str]:
     """Parse a raw classification response into (folder, explanation)."""
-    try:
-        folder, explanation = content.split(":", 1)
-    except ValueError:
+    if ":" not in content:
         return ("invalid", "could not split response")
 
-    folder = folder.strip()
-    explanation = explanation.strip()
+    before, _, after = content.partition(":")
 
-    if folder == "Inbox":
-        return (folder, explanation)
+    # The model may prefix the answer with an essay; the folder is the last
+    # non-empty line before the first colon.
+    pre_lines = [line.strip() for line in before.splitlines() if line.strip()]
+    if not pre_lines:
+        return ("invalid", "could not split response")
 
-    if folder not in folders:
-        return (f'invalid: "{folder}"', explanation)
+    raw_folder = _clean_folder_name(pre_lines[-1])
+    explanation = after.strip()
 
-    return (folder, explanation)
+    if raw_folder.lower() == "inbox":
+        return ("Inbox", explanation)
+
+    # Match either the full folder name or the short name (without the prefix).
+    folder_map = {remove_prefix(folder).lower(): folder for folder in folders}
+    short = remove_prefix(raw_folder).lower()
+
+    if short in folder_map:
+        return (folder_map[short], explanation)
+
+    return (f'invalid: "{raw_folder}"', explanation)

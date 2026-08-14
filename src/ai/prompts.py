@@ -26,6 +26,12 @@ SYSTEM_PROMPT_TEMPLATE = (
     "belong in Newsletters or Spam, never in Important.\n"
     "- Important is only for genuinely time-sensitive or personal mail.\n"
     "- If none of the folders clearly fit and the email is not ambiguous, choose Inbox.\n"
+    "- Do NOT rewrite or summarize the email body.\n\n"
+    "Examples (respond with exactly one line like these):\n"
+    "Newsletters: This is a regular industry newsletter with multiple article links and a sponsor section.\n"
+    "Notifications: This is an automated statement or account alert from a service the recipient uses.\n"
+    "Spam: This is an unsolicited promotional message with suspicious links and excessive discount claims.\n"
+    "Important: This is a personal or time-sensitive message from a known contact that requires prompt attention.\n"
 )
 
 

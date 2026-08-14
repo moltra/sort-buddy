@@ -61,6 +61,7 @@ class OllamaClient(AIClient):
         chat_kwargs: dict[str, object] = {
             "model": self._config.llm_model,
             "messages": messages,
+            "max_tokens": 128,
         }
         if use_json_mode:
             chat_kwargs["response_format"] = {"type": "json_object"}
@@ -72,7 +73,7 @@ class OllamaClient(AIClient):
                 return ("invalid", "AI request rejected by the endpoint")
             try:
                 del chat_kwargs["response_format"]
-                chat_kwargs["extra_body"] = {"format": "json"}
+                chat_kwargs["extra_body"] = {"format": "json", "options": {"num_ctx": 8192}}
                 raw = self._client.chat.completions.with_raw_response.create(**chat_kwargs)
             except (
                 openai.APIError,

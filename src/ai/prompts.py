@@ -88,6 +88,13 @@ def _clean_folder_name(folder: str) -> str:
     return folder
 
 
+def _truncate_email_body(body: str, max_len: int = 2000) -> str:
+    """Return the body clipped to max_len, with a truncation marker if shortened."""
+    if len(body) <= max_len:
+        return body
+    return body[:max_len] + "\n\n[... content truncated for brevity ...]"
+
+
 def generate_prompt(
     message: dict[str, str],
     folders: list[str],
@@ -99,9 +106,10 @@ def generate_prompt(
     folder_list = _folder_definitions(stripped_folders)
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(folder_list=folder_list)
 
+    body = _truncate_email_body(message["body"])
     prompt = f"Email Subject: {message['subject']}\n"
     prompt += f"Email From: {message['from']}\n"
-    prompt += f"Email Body: {message['body']}\n"
+    prompt += f"Email Body: {body}\n"
 
     if show_prompt:
         print(system_prompt)
@@ -121,9 +129,10 @@ def generate_json_prompt(
     folder_list = _folder_definitions(stripped_folders)
     system_prompt = SYSTEM_PROMPT_JSON_TEMPLATE.format(folder_list=folder_list)
 
+    body = _truncate_email_body(message["body"])
     prompt = f"Email Subject: {message['subject']}\n"
     prompt += f"Email From: {message['from']}\n"
-    prompt += f"Email Body: {message['body']}\n"
+    prompt += f"Email Body: {body}\n"
 
     if show_prompt:
         print(system_prompt)

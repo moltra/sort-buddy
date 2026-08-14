@@ -69,6 +69,7 @@ class OpenAIClient(AIClient):
                 {"role": "system", "content": final_system},
                 {"role": "user", "content": prompt},
             ],
+            "max_tokens": 128,
         }
         if use_json_mode:
             chat_kwargs["response_format"] = {"type": "json_object"}

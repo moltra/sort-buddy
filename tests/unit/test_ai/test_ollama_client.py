@@ -173,4 +173,4 @@ def test_classify_email_json_mode_extra_body_fallback(mocker: MockerFixture):
     assert explanation == "ok."
     calls = mock_openai.return_value.chat.completions.with_raw_response.create.call_args_list
     assert calls[0].kwargs["response_format"] == {"type": "json_object"}
-    assert calls[1].kwargs["extra_body"] == {"format": "json"}
+    assert calls[1].kwargs["extra_body"] == {"format": "json", "options": {"num_ctx": 8192}}

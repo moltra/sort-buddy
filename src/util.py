@@ -7,6 +7,8 @@ import re
 import sys
 from typing import Any
 
+from loguru import logger
+
 def remove_prefix(name: str, prefix: str | None = None) -> str:
     if prefix is None:
         prefix = os.environ.get("FOLDER_PREFIX", "")
@@ -49,3 +51,18 @@ def get_terminal_width() -> int:
 
 def print_line() -> None:
     print(Fore.YELLOW + "-" * get_terminal_width() + Style.RESET_ALL)
+
+
+_AUDIT_LOG_FILE = os.path.expanduser("~/.sort-buddy.log")
+_AUDIT_LOG_HANDLER_ID: int | None = None
+
+
+def configure_audit_logger() -> None:
+    """Add an idempotent loguru file sink for audit logging."""
+    global _AUDIT_LOG_HANDLER_ID
+    if _AUDIT_LOG_HANDLER_ID is None:
+        _AUDIT_LOG_HANDLER_ID = logger.add(
+            _AUDIT_LOG_FILE,
+            level="INFO",
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <5} | {message}",
+        )

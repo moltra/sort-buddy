@@ -10,7 +10,7 @@ from loguru import logger
 from email_fetcher import EmailFetcher
 from json_email_fetcher import JSONEmailFetcher
 from ai import get_ai_response_from_message, configure_openai
-from util import get_stripped_folder_list, save_results_to_json, signal_handler, print_line
+from util import get_stripped_folder_list, save_results_to_json, signal_handler, print_line, configure_audit_logger
 
 from accounts_config import AccountsConfig
 from account_processor import process_account
@@ -61,6 +61,11 @@ def _run_single_account(
 
         folder, explanation = get_ai_response_from_message(message, formatted_inboxes, show_prompt, show_rate_limits)
 
+        logger.info(
+            f"message_id={message['id']} from={message['from']} "
+            f"subject={message['subject']} folder={folder} explanation={explanation}"
+        )
+
         print(f" --> {Fore.GREEN}{folder}{Style.RESET_ALL}: {Fore.WHITE}{explanation}{Style.RESET_ALL}")
 
         response_data = {
@@ -83,6 +88,7 @@ def _run_single_account(
 
             elif folder in formatted_inboxes:
                 fetcher.move_message(message["id"], f"{os.getenv('FOLDER_PREFIX')}{folder}")
+                logger.info(f"message_id={message['id']} action=move target_folder={folder}")
 
             else:
                 print("Received invalid response, please review manually.")
@@ -160,6 +166,8 @@ def main(
         show_rate_limits: bool = False,
         accounts_file: str | None = None,
         account_name: str | None = None) -> None:
+
+    configure_audit_logger()
 
     if accounts_file:
         _run_multi_account(

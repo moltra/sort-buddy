@@ -13,7 +13,7 @@ from accounts_config import AccountConfig
 from ai import get_ai_response_from_message
 from config import EmailConfig
 from email_fetcher import EmailFetcher
-from util import get_stripped_folder_list, print_line, save_results_to_json
+from util import get_stripped_folder_list, print_line, save_results_to_json, configure_audit_logger
 
 
 def process_account(
@@ -38,6 +38,8 @@ def process_account(
     Returns:
         A dictionary with processing stats.
     """
+    configure_audit_logger()
+
     print(f"[{account.name}] Processing...")
 
     email_config = EmailConfig.from_account_config(account)
@@ -89,6 +91,11 @@ def process_account(
                 errors += 1
                 continue
 
+            logger.info(
+                f"message_id={message['id']} from={message['from']} "
+                f"subject={message['subject']} folder={folder} explanation={explanation}"
+            )
+
             print(
                 f"[{account.name}] --> {Fore.GREEN}{folder}{Style.RESET_ALL}: "
                 f"{Fore.WHITE}{explanation}{Style.RESET_ALL}"
@@ -114,6 +121,7 @@ def process_account(
                         message["id"],
                         f"{email_config.folder_prefix}{folder}",
                     )
+                    logger.info(f"message_id={message['id']} action=move target_folder={folder}")
                 else:
                     print(
                         f"[{account.name}] Received invalid response, please review manually."

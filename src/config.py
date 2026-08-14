@@ -33,6 +33,10 @@ class LLMConfig(BaseSettings):
         validation_alias=AliasChoices("LLM_MODEL", "OPENAI_MODEL"),
     )
     llm_timeout: float = Field(default=60.0, gt=0.0)
+    llm_use_json_mode: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("LLM_USE_JSON_MODE"),
+    )
 
     @model_validator(mode="after")
     def _configure(self) -> "LLMConfig":

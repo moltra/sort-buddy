@@ -5,7 +5,12 @@ from __future__ import annotations
 import openai
 
 from ai.base import AIClient
-from ai.prompts import generate_prompt, parse_classification
+from ai.prompts import (
+    generate_json_prompt,
+    generate_prompt,
+    parse_classification,
+    parse_json_classification,
+)
 from config import LLMConfig
 
 _RATE_LIMIT_HEADERS = [
@@ -47,22 +52,29 @@ class OpenAIClient(AIClient):
         show_prompt: bool = False,
         show_rate_limits: bool = False,
         system_prompt: str = "",
+        use_json_mode: bool = False,
     ) -> tuple[str, str]:
         """Classify an email using the OpenAI API."""
         if self._client is None or self._config is None:
             raise RuntimeError("Client not configured")
 
-        default_system, prompt = generate_prompt(message, folders, show_prompt)
+        prompt_builder = generate_json_prompt if use_json_mode else generate_prompt
+        parser = parse_json_classification if use_json_mode else parse_classification
+        default_system, prompt = prompt_builder(message, folders, show_prompt)
         final_system = system_prompt if system_prompt else default_system
 
+        chat_kwargs: dict[str, object] = {
+            "model": self._config.llm_model,
+            "messages": [
+                {"role": "system", "content": final_system},
+                {"role": "user", "content": prompt},
+            ],
+        }
+        if use_json_mode:
+            chat_kwargs["response_format"] = {"type": "json_object"}
+
         try:
-            raw = self._client.chat.completions.with_raw_response.create(
-                model=self._config.llm_model,
-                messages=[
-                    {"role": "system", "content": final_system},
-                    {"role": "user", "content": prompt},
-                ],
-            )
+            raw = self._client.chat.completions.with_raw_response.create(**chat_kwargs)
         except (
             openai.APIError,
             openai.APIConnectionError,
@@ -82,7 +94,7 @@ class OpenAIClient(AIClient):
             return ("invalid", "empty or malformed AI response")
         if not content:
             return ("invalid", "empty or malformed AI response")
-        return parse_classification(content, folders)
+        return parser(content, folders)
 
     def health_check(self) -> bool:
         """Check the OpenAI API by listing available models."""

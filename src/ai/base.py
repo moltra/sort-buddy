@@ -23,6 +23,7 @@ class AIClient(ABC):
         show_prompt: bool = False,
         show_rate_limits: bool = False,
         system_prompt: str = "",
+        use_json_mode: bool = False,
     ) -> tuple[str, str]:
         """Classify an email into one of the supplied folders."""
         ...

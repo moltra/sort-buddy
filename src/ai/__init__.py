@@ -15,13 +15,14 @@ __all__ = [
 ]
 
 _client: AIClient | None = None
+_config: LLMConfig | None = None
 
 
 def configure_openai() -> None:
     """Configure the global AI client from environment variables."""
-    global _client
-    config = LLMConfig()
-    _client = create_ai_client(config)
+    global _client, _config
+    _config = LLMConfig()
+    _client = create_ai_client(_config)
 
 
 def generate_prompt(message: dict[str, str], folders: list[str], show_prompt: bool = False) -> tuple[str, str]:
@@ -31,8 +32,9 @@ def generate_prompt(message: dict[str, str], folders: list[str], show_prompt: bo
 
 def get_ai_response(prompt: str, system_prompt: str, folders: list[str], show_rate_limits: bool = False) -> tuple[str, str]:
     """Get an AI classification from a pre-built prompt pair."""
-    if _client is None:
+    if _client is None or _config is None:
         configure_openai()
+    assert _client is not None and _config is not None
     # Use a synthetic message so the shared client can be reused. The
     # supplied user prompt is placed in the message body.
     message = {
@@ -46,6 +48,7 @@ def get_ai_response(prompt: str, system_prompt: str, folders: list[str], show_ra
         show_prompt=False,
         show_rate_limits=show_rate_limits,
         system_prompt=system_prompt,
+        use_json_mode=_config.llm_use_json_mode,
     )
 
 
@@ -56,6 +59,13 @@ def get_ai_response_from_message(
     show_rate_limits: bool = False,
 ) -> tuple[str, str]:
     """Get an AI classification for an email message dictionary."""
-    if _client is None:
+    if _client is None or _config is None:
         configure_openai()
-    return _client.classify_email(message, folders, show_prompt, show_rate_limits)
+    assert _client is not None and _config is not None
+    return _client.classify_email(
+        message,
+        folders,
+        show_prompt,
+        show_rate_limits,
+        use_json_mode=_config.llm_use_json_mode,
+    )

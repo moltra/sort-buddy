@@ -118,3 +118,20 @@ def test_health_check_failure(mocker: MockerFixture):
         message="down", request=None
     )
     assert client.health_check() is False
+
+
+def test_classify_email_json_mode(mocker: MockerFixture):
+    mock_openai = mocker.patch("openai.OpenAI")
+    _set_response(mock_openai, '{"folder": "Work", "explanation": "this is work"}')
+    client = OpenAIClient()
+    client.configure(_make_config())
+    folder, explanation = client.classify_email(
+        {"subject": "S", "from": "a@b.com", "body": "B"},
+        ["Work", "Personal"],
+        use_json_mode=True,
+    )
+    assert folder == "Work"
+    assert explanation == "this is work"
+    create = mock_openai.return_value.chat.completions.with_raw_response.create
+    assert create.call_count == 1
+    assert create.call_args.kwargs.get("response_format") == {"type": "json_object"}

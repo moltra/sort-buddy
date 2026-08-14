@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from accounts_config import AccountConfig
+
+# Skip the repository .env when running under the test suite so that tests
+# control their own environment variables.
+_ENV_FILE = ".env" if not os.getenv("SORTBUDDY_TESTING") else None
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,7 +18,7 @@ class LLMConfig(BaseSettings):
     """LLM provider configuration loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -87,7 +92,7 @@ class EmailConfig(BaseSettings):
     """Email provider configuration loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,

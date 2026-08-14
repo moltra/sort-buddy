@@ -5,7 +5,11 @@ This module provides well-isolated fixtures for testing without network dependen
 All fixtures use monkeypatch/mocker to avoid real network calls.
 """
 
+import os
 from unittest.mock import MagicMock
+
+# Signal to src/config.py that it should not load the repository .env file.
+os.environ["SORTBUDDY_TESTING"] = "1"
 
 import pytest
 from pytest_mock import MockerFixture
@@ -126,3 +130,8 @@ def baseline_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("EMAIL_USERNAME", "test@example.com")
     monkeypatch.setenv("EMAIL_PASSWORD", "test-password")
     monkeypatch.setenv("FOLDER_PREFIX", "AI-")
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Remove the testing flag once the test session finishes."""
+    os.environ.pop("SORTBUDDY_TESTING", None)

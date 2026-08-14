@@ -15,7 +15,9 @@ from util import get_stripped_folder_list, save_results_to_json, signal_handler,
 from accounts_config import AccountsConfig
 from account_processor import process_account
 
-load_dotenv()
+# Skip .env loading during tests to avoid polluting os.environ.
+if not os.getenv("SORTBUDDY_TESTING"):
+    load_dotenv()
 
 
 def _run_single_account(

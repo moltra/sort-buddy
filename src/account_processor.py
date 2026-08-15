@@ -13,6 +13,7 @@ from accounts_config import AccountConfig
 from ai import get_ai_response_from_message
 from config import EmailConfig
 from email_fetcher import EmailFetcher
+from history import append_history
 from util import get_stripped_folder_list, print_line, save_results_to_json, configure_audit_logger
 
 
@@ -100,6 +101,22 @@ def process_account(
                 f"[{account.name}] --> {Fore.GREEN}{folder}{Style.RESET_ALL}: "
                 f"{Fore.WHITE}{explanation}{Style.RESET_ALL}"
             )
+
+            history_record = {
+                "timestamp": datetime.now().isoformat(),
+                "account": account.name,
+                "message_id": message["id"],
+                "from": message["from"],
+                "subject": message["subject"],
+                "body_preview": message.get("body", "")[:200],
+                "folder": folder,
+                "explanation": explanation,
+                "model": os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL") or "",
+                "mode": "json"
+                if os.getenv("LLM_USE_JSON_MODE", "").lower() in {"1", "true", "yes", "on"}
+                else "text",
+            }
+            append_history(history_record)
 
             response_data = {
                 "datetime": datetime.now().isoformat(),

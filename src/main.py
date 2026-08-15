@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import signal
 import sys
@@ -9,6 +10,7 @@ from dotenv import load_dotenv
 from loguru import logger
 from email_fetcher import EmailFetcher
 from json_email_fetcher import JSONEmailFetcher
+from history import HISTORY_PATH, append_feedback
 from ai import get_ai_response_from_message, configure_openai
 from util import get_stripped_folder_list, save_results_to_json, signal_handler, print_line, configure_audit_logger
 
@@ -115,14 +117,97 @@ def _run_single_account(
     }
 
 
-_AI_FOLDERS = [
-    "AI-Important",
-    "AI-Newsletters",
-    "AI-Notifications",
-    "AI-Other",
-    "AI-Personal",
-    "AI-Spam",
+_BASE_FOLDER_NAMES = [
+    "Important",
+    "Newsletters",
+    "Notifications",
+    "Other",
+    "Personal",
+    "Spam",
 ]
+
+_AI_FOLDERS = [f"AI-{name}" for name in _BASE_FOLDER_NAMES]
+
+_FOLDER_ALIASES = {name: f"AI-{name}" for name in _BASE_FOLDER_NAMES}
+
+
+def _prompt_correct_folder() -> str | None:
+    """Prompt the user for a valid AI-* folder name, accepting base or full names."""
+    print("Valid folders:")
+    print(f"  Base names: {', '.join(_BASE_FOLDER_NAMES)}")
+    print(f"  Full names: {', '.join(_AI_FOLDERS)}")
+    while True:
+        folder = input("Enter correct folder (e.g. Newsletters or AI-Newsletters), or 'q' to skip: ").strip()
+        if folder.lower() == "q":
+            return None
+        if folder in _AI_FOLDERS:
+            return folder
+        if folder in _BASE_FOLDER_NAMES:
+            return _FOLDER_ALIASES[folder]
+        print("Invalid folder. Please try again.")
+
+
+def _review_history(review_count: int, no_color: bool) -> None:
+    """Interactively review the classification history."""
+    colorama_init(strip=no_color)
+    if not HISTORY_PATH.exists():
+        print("No history file found.")
+        return
+
+    try:
+        lines = HISTORY_PATH.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        print(f"Error reading history: {exc}")
+        return
+
+    entries: list[dict[str, Any]] = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entries.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    entries.reverse()
+
+    reviewed = 0
+    for entry in entries[:review_count]:
+        print_line()
+        print(f"{Fore.BLUE}From:{Style.RESET_ALL} {Fore.CYAN}{entry.get('from', '')}{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}Subject:{Style.RESET_ALL} {Fore.CYAN}{entry.get('subject', '')}{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}Classified Folder:{Style.RESET_ALL} {Fore.GREEN}{entry.get('folder', '')}{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}Explanation:{Style.RESET_ALL} {Fore.WHITE}{entry.get('explanation', '')}{Style.RESET_ALL}")
+        choice = input("[y]es / [n]o / [s]kip / [q]uit: ").strip().lower()
+        if choice == "y":
+            pass
+        elif choice == "n":
+            corrected = _prompt_correct_folder()
+            if corrected is None:
+                continue
+            feedback_record = {
+                "timestamp": datetime.now().isoformat(),
+                "message_id": entry.get("message_id"),
+                "from": entry.get("from"),
+                "subject": entry.get("subject"),
+                "body_preview": entry.get("body_preview"),
+                "original_folder": entry.get("folder"),
+                "corrected_folder": corrected,
+                "explanation": entry.get("explanation"),
+                "model": entry.get("model"),
+            }
+            append_feedback(feedback_record)
+        elif choice == "s":
+            continue
+        elif choice == "q":
+            break
+        else:
+            continue
+        reviewed += 1
+
+    print_line()
+    print(f"Reviewed {reviewed} messages.")
 
 
 def _create_folders(
@@ -230,9 +315,15 @@ def main(
         show_rate_limits: bool = False,
         accounts_file: str | None = None,
         account_name: str | None = None,
-        create_folders: bool = False) -> None:
+        create_folders: bool = False,
+        review: bool = False,
+        review_count: int = 20) -> None:
 
     configure_audit_logger()
+
+    if review:
+        _review_history(review_count, no_color)
+        return
 
     if create_folders:
         _create_folders(accounts_file or "accounts.yaml", dry_run=dry_run)
@@ -275,6 +366,8 @@ if __name__ == "__main__":
     parser.add_argument("--accounts", type=str, help="Path to a multi-account YAML configuration file.")
     parser.add_argument("--account", type=str, help="Process only the named account from the accounts file.")
     parser.add_argument("--create-folders", action="store_true", help="Create the 6 AI-* folders for all enabled accounts and exit.")
+    parser.add_argument("--review", action="store_true", help="Interactively review classification history.")
+    parser.add_argument("--review-count", type=int, default=20, help="Number of history entries to review (default: 20).")
     args = parser.parse_args()
 
     logger.remove()
@@ -291,4 +384,6 @@ if __name__ == "__main__":
         accounts_file=args.accounts,
         account_name=args.account,
         create_folders=args.create_folders,
+        review=args.review,
+        review_count=args.review_count,
     )

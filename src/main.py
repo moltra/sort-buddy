@@ -14,6 +14,7 @@ from util import get_stripped_folder_list, save_results_to_json, signal_handler,
 
 from accounts_config import AccountsConfig
 from account_processor import process_account
+from config import EmailConfig
 
 # Skip .env loading during tests to avoid polluting os.environ.
 if not os.getenv("SORTBUDDY_TESTING"):
@@ -114,6 +115,67 @@ def _run_single_account(
     }
 
 
+_AI_FOLDERS = [
+    "AI-Important",
+    "AI-Newsletters",
+    "AI-Notifications",
+    "AI-Other",
+    "AI-Personal",
+    "AI-Spam",
+]
+
+
+def _create_folders(
+    accounts_file: str,
+    dry_run: bool = False,
+) -> None:
+    """Create the standard AI folders for every enabled account."""
+    try:
+        accounts = AccountsConfig.from_yaml(accounts_file)
+    except Exception as exc:
+        print(f"Error loading accounts file: {exc}")
+        sys.exit(1)
+
+    accounts_to_process = accounts.get_enabled_accounts()
+    if not accounts_to_process:
+        print("No enabled accounts found.")
+        return
+
+    total_created = 0
+    total_skipped = 0
+    total_failed = 0
+    for account in accounts_to_process:
+        try:
+            email_config = EmailConfig.from_account_config(account)
+            fetcher = EmailFetcher(dry_run=dry_run, email_config=email_config)
+            fetcher.connect()
+            existing_folders = set(fetcher.list_ai_folders())
+            created = 0
+            skipped = 0
+            failed = 0
+            for folder in _AI_FOLDERS:
+                if folder in existing_folders:
+                    skipped += 1
+                    continue
+                if fetcher.create_folder(folder):
+                    created += 1
+                else:
+                    failed += 1
+            fetcher.close()
+            total_created += created
+            total_skipped += skipped
+            total_failed += failed
+            print(f"[{account.name}] Created {created}, skipped {skipped}, failed {failed}.")
+        except Exception:
+            logger.exception("[%s] Failed to create folders", account.name)
+
+    print(
+        f"Finished creating folders: "
+        f"created={total_created}, skipped={total_skipped}, failed={total_failed} "
+        f"across {len(accounts_to_process)} accounts."
+    )
+
+
 def _run_multi_account(
     accounts_file: str,
     account_name: str | None,
@@ -167,9 +229,14 @@ def main(
         use_json: str | None = None,
         show_rate_limits: bool = False,
         accounts_file: str | None = None,
-        account_name: str | None = None) -> None:
+        account_name: str | None = None,
+        create_folders: bool = False) -> None:
 
     configure_audit_logger()
+
+    if create_folders:
+        _create_folders(accounts_file or "accounts.yaml", dry_run=dry_run)
+        return
 
     if accounts_file:
         _run_multi_account(
@@ -207,6 +274,7 @@ if __name__ == "__main__":
     parser.add_argument("--print-rate-limits", action="store_true", help="Show the rate limits header from the OpenAI API response.")
     parser.add_argument("--accounts", type=str, help="Path to a multi-account YAML configuration file.")
     parser.add_argument("--account", type=str, help="Process only the named account from the accounts file.")
+    parser.add_argument("--create-folders", action="store_true", help="Create the 6 AI-* folders for all enabled accounts and exit.")
     args = parser.parse_args()
 
     logger.remove()
@@ -222,4 +290,5 @@ if __name__ == "__main__":
         show_rate_limits=args.print_rate_limits,
         accounts_file=args.accounts,
         account_name=args.account,
+        create_folders=args.create_folders,
     )

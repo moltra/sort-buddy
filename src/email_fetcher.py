@@ -67,5 +67,11 @@ class EmailFetcher:
             logger.exception("Failed to move message %s to %s", message_id, target_folder)
             raise
 
+    def connect(self) -> None:
+        self._provider.connect(dry_run=self.dry_run)
+
+    def create_folder(self, folder_name: str) -> bool:
+        return self._provider.create_folder(folder_name)
+
     def close(self) -> None:
         self._provider.close()

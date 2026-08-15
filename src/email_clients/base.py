@@ -58,3 +58,8 @@ class EmailProvider(ABC):
     def has_flag(self, message_id: int | str, flag: str) -> bool:
         """Return True if a message has the given keyword flag."""
         raise NotImplementedError
+
+    @abstractmethod
+    def create_folder(self, folder_name: str) -> bool:
+        """Create a folder on the email server."""
+        ...

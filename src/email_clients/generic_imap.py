@@ -131,6 +131,19 @@ class GenericIMAPProvider(EmailProvider):
         self.client.expunge()
         return True
 
+    def create_folder(self, folder_name: str) -> bool:
+        """Create a folder on the IMAP server."""
+        try:
+            self.client.create_folder(folder_name)
+            return True
+        except IMAPClientError as exc:
+            err_text = " ".join(str(arg) for arg in exc.args).lower()
+            if any(k in err_text for k in ("alreadyexists", "duplicate", "exists")):
+                logger.info(f"Folder {folder_name} already exists, skipping.")
+                return True
+            logger.warning(f"Failed to create folder {folder_name}: {exc}")
+            return False
+
     def close(self) -> None:
         """Close the IMAP connection."""
         if self.client is not None:

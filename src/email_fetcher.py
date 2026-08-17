@@ -54,6 +54,9 @@ class EmailFetcher:
     def add_flag(self, message_id: int | str, flag: str) -> None:
         self._provider.add_flag(message_id, flag)
 
+    def remove_flag(self, message_id: int | str, flag: str) -> None:
+        self._provider.remove_flag(message_id, flag)
+
     def has_flag(self, message_id: int | str, flag: str) -> bool:
         return self._provider.has_flag(message_id, flag)
 

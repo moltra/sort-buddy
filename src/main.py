@@ -261,6 +261,45 @@ def _create_folders(
     )
 
 
+def _reset_flags(accounts_file: str | None) -> None:
+    """Remove SortBuddy flags from all messages so they can be reprocessed."""
+    try:
+        accounts = AccountsConfig.from_yaml(accounts_file or "accounts.yaml")
+    except Exception as exc:
+        print(f"Error loading accounts file: {exc}")
+        sys.exit(1)
+
+    accounts_to_process = accounts.get_enabled_accounts()
+    if not accounts_to_process:
+        print("No enabled accounts found.")
+        return
+
+    total_removed = 0
+    for account in accounts_to_process:
+        try:
+            email_config = EmailConfig.from_account_config(account)
+            fetcher = EmailFetcher(dry_run=False, email_config=email_config)
+            fetcher.connect()
+            
+            # Search for all messages with the SortBuddy flag
+            # We need to access the provider's client to search
+            provider = fetcher._provider
+            flagged_ids = provider.client.search(["KEYWORD", provider._flag_name])
+            
+            removed = 0
+            for msg_id in flagged_ids:
+                fetcher.remove_flag(msg_id, provider._flag_name)
+                removed += 1
+            
+            fetcher.close()
+            total_removed += removed
+            print(f"[{account.name}] Removed SortBuddy flag from {removed} messages.")
+        except Exception:
+            logger.exception("[%s] Failed to reset flags", account.name)
+
+    print(f"Finished resetting flags: removed={total_removed} across {len(accounts_to_process)} accounts.")
+
+
 def _run_multi_account(
     accounts_file: str,
     account_name: str | None,
@@ -317,7 +356,8 @@ def main(
         account_name: str | None = None,
         create_folders: bool = False,
         review: bool = False,
-        review_count: int = 20) -> None:
+        review_count: int = 20,
+        reset_flags: bool = False) -> None:
 
     configure_audit_logger()
 
@@ -327,6 +367,10 @@ def main(
 
     if create_folders:
         _create_folders(accounts_file or "accounts.yaml", dry_run=dry_run)
+        return
+
+    if reset_flags:
+        _reset_flags(accounts_file)
         return
 
     if accounts_file:
@@ -368,6 +412,7 @@ if __name__ == "__main__":
     parser.add_argument("--create-folders", action="store_true", help="Create the 6 AI-* folders for all enabled accounts and exit.")
     parser.add_argument("--review", action="store_true", help="Interactively review classification history.")
     parser.add_argument("--review-count", type=int, default=20, help="Number of history entries to review (default: 20).")
+    parser.add_argument("--reset-flags", action="store_true", help="Remove SortBuddy flags from all messages so they can be reprocessed.")
     args = parser.parse_args()
 
     logger.remove()
@@ -386,4 +431,5 @@ if __name__ == "__main__":
         create_folders=args.create_folders,
         review=args.review,
         review_count=args.review_count,
+        reset_flags=args.reset_flags,
     )

@@ -16,17 +16,21 @@ FOLDER_DEFINITIONS: dict[str, str] = {
     "Spam": "Unwanted, unsolicited, or suspicious bulk mail.",
 }
 
+VALID_FOLDERS: frozenset[str] = frozenset(FOLDER_DEFINITIONS.keys())
+
 SYSTEM_PROMPT_TEMPLATE = (
     "You are an email classifier. Pick exactly one folder for the email below.\n\n"
     "Available folders:\n"
     "{folder_list}\n\n"
     "Rules:\n"
+    "- You MUST use exactly one of these folder names: Important, Newsletters, Notifications, Other, Personal, Spam. Do NOT use Work, Mailing-List, or any other name.\n"
     "- Respond with exactly this format and nothing else: <Folder>: <brief explanation>\n"
     "- Do not include introductions, conclusions, code blocks, quotes, or extra lines.\n"
     "- Important is only for genuinely time-sensitive or personal mail.\n"
     "- Newsletters is for marketing, promotions, newsletters, coupons, and recurring mass mail. "
     "These belong in Newsletters or Spam, never in Important.\n"
     "- Notifications is for automated alerts, statements, receipts, and account updates from services.\n"
+    "- If the sender contains postmaster, no-reply, noreply, notifications, alerts, jobalerts, or is an automated service message, classify as Notifications unless the subject is about a payment due, account security, or other urgent personal matter.\n"
     "- Other is for anything that does not clearly match the other categories.\n"
     "- Personal is for private, non-work, or individually addressed messages.\n"
     "- Spam is for unwanted, unsolicited, or suspicious bulk mail.\n"
@@ -35,8 +39,10 @@ SYSTEM_PROMPT_TEMPLATE = (
     "Important: This is a personal, time-sensitive message from a known contact that requires prompt attention.\n"
     "Newsletters: This is a regular industry newsletter with multiple article links and a sponsor section.\n"
     "Notifications: This is an automated statement or account alert from a service the recipient uses.\n"
+    "Notifications: This is a job alert from LinkedIn about a new position matching the recipient's profile.\n"
     "Other: This is an email that does not clearly belong to any other category.\n"
     "Personal: This is a private, individually addressed message from a friend or family member.\n"
+    "Personal: This is a LinkedIn connection request from a known contact.\n"
     "Spam: This is an unsolicited promotional message with suspicious links and excessive discount claims.\n\n"
     "Negative examples (do NOT respond like these):\n"
     '- "I think this email is important because..." (no essays or explanations outside the format)\n'
@@ -51,6 +57,7 @@ SYSTEM_PROMPT_JSON_TEMPLATE = (
     "Available folders:\n"
     "{folder_list}\n\n"
     "Rules:\n"
+    "- You MUST use exactly one of these folder names: Important, Newsletters, Notifications, Other, Personal, Spam. Do NOT use Work, Mailing-List, or any other name.\n"
     "- Output only valid JSON. Do not wrap it in Markdown code blocks or add extra text.\n"
     "- Choose exactly one folder from the list above.\n"
     "- explanation must be a brief one-sentence reason for the choice.\n"
@@ -58,6 +65,7 @@ SYSTEM_PROMPT_JSON_TEMPLATE = (
     "- Newsletters is for marketing, promotions, newsletters, coupons, and recurring mass mail. "
     "These belong in Newsletters or Spam, never in Important.\n"
     "- Notifications is for automated alerts, statements, receipts, and account updates from services.\n"
+    "- If the sender contains postmaster, no-reply, noreply, notifications, alerts, jobalerts, or is an automated service message, classify as Notifications unless the subject is about a payment due, account security, or other urgent personal matter.\n"
     "- Other is for anything that does not clearly match the other categories.\n"
     "- Personal is for private, non-work, or individually addressed messages.\n"
     "- Spam is for unwanted, unsolicited, or suspicious bulk mail.\n\n"
@@ -65,8 +73,10 @@ SYSTEM_PROMPT_JSON_TEMPLATE = (
     '{{"folder": "Important", "explanation": "This is a personal, time-sensitive message from a known contact."}}\n'
     '{{"folder": "Newsletters", "explanation": "This is a regular industry newsletter with article links."}}\n'
     '{{"folder": "Notifications", "explanation": "This is an automated statement from a service."}}\n'
+    '{{"folder": "Notifications", "explanation": "This is a job alert from LinkedIn about a new position."}}\n'
     '{{"folder": "Other", "explanation": "This email does not clearly belong to any other category."}}\n'
     '{{"folder": "Personal", "explanation": "This is a private message from a friend or family member."}}\n'
+    '{{"folder": "Personal", "explanation": "This is a LinkedIn connection request from a known contact."}}\n'
     '{{"folder": "Spam", "explanation": "This is an unsolicited promotional message with suspicious links."}}\n'
 )
 
@@ -165,7 +175,11 @@ def parse_classification(content: str, folders: list[str]) -> tuple[str, str]:
     short = remove_prefix(raw_folder).lower()
 
     if short in folder_map:
-        return (folder_map[short], explanation)
+        folder = folder_map[short]
+        # Validate against VALID_FOLDERS
+        if remove_prefix(folder) not in VALID_FOLDERS:
+            return (f'invalid: "{raw_folder}"', explanation)
+        return (folder, explanation)
 
     return (f'invalid: "{raw_folder}"', explanation)
 
@@ -204,6 +218,10 @@ def parse_json_classification(content: str, folders: list[str]) -> tuple[str, st
     short = remove_prefix(raw_folder).lower()
 
     if short in folder_map:
-        return (folder_map[short], explanation)
+        folder = folder_map[short]
+        # Validate against VALID_FOLDERS
+        if remove_prefix(folder) not in VALID_FOLDERS:
+            return (f'invalid: "{raw_folder}"', explanation)
+        return (folder, explanation)
 
     return (f'invalid: "{raw_folder}"', explanation)

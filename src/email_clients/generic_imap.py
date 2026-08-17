@@ -110,6 +110,11 @@ class GenericIMAPProvider(EmailProvider):
         if not self.dry_run:
             self._add_flag(int(message_id), flag)
 
+    def remove_flag(self, message_id: int | str, flag: str) -> None:
+        """Remove a keyword flag from a message, respecting dry-run mode."""
+        if not self.dry_run:
+            self.client.remove_flags(int(message_id), [flag])
+
     def has_flag(self, message_id: int | str, flag: str) -> bool:
         """Return True if a message has the given keyword flag."""
         msg_id = int(message_id)

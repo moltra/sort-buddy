@@ -48,15 +48,15 @@ def test_configure_uses_openai_client(mocker: MockerFixture):
 
 def test_classify_email_valid(mocker: MockerFixture):
     mock_openai = mocker.patch("openai.OpenAI")
-    _set_response(mock_openai, "Work: this is work")
+    _set_response(mock_openai, "Personal: this is personal")
     client = OpenAIClient()
     client.configure(_make_config())
     folder, explanation = client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work", "Personal"],
+        ["AI-Personal", "AI-Important"],
     )
-    assert folder == "Work"
-    assert explanation == "this is work"
+    assert folder == "AI-Personal"
+    assert explanation == "this is personal"
 
 
 def test_classify_email_inbox(mocker: MockerFixture):
@@ -66,7 +66,7 @@ def test_classify_email_inbox(mocker: MockerFixture):
     client.configure(_make_config())
     folder, explanation = client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work"],
+        ["AI-Personal"],
     )
     assert folder == "Inbox"
     assert explanation == "keep here"
@@ -79,7 +79,7 @@ def test_classify_email_rate_limits(capsys, mocker: MockerFixture):
     client.configure(_make_config())
     client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work"],
+        ["AI-Personal"],
         show_rate_limits=True,
     )
     captured = capsys.readouterr()
@@ -96,7 +96,7 @@ def test_classify_email_api_error(mocker: MockerFixture):
     client.configure(_make_config())
     folder, explanation = client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work"],
+        ["AI-Personal"],
     )
     assert folder == "invalid"
     assert "network down" in explanation
@@ -122,16 +122,16 @@ def test_health_check_failure(mocker: MockerFixture):
 
 def test_classify_email_json_mode(mocker: MockerFixture):
     mock_openai = mocker.patch("openai.OpenAI")
-    _set_response(mock_openai, '{"folder": "Work", "explanation": "this is work"}')
+    _set_response(mock_openai, '{"folder": "Personal", "explanation": "this is personal"}')
     client = OpenAIClient()
     client.configure(_make_config())
     folder, explanation = client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work", "Personal"],
+        ["AI-Personal", "AI-Important"],
         use_json_mode=True,
     )
-    assert folder == "Work"
-    assert explanation == "this is work"
+    assert folder == "AI-Personal"
+    assert explanation == "this is personal"
     create = mock_openai.return_value.chat.completions.with_raw_response.create
     assert create.call_count == 1
     assert create.call_args.kwargs.get("response_format") == {"type": "json_object"}

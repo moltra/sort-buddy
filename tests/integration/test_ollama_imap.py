@@ -54,7 +54,7 @@ def test_ollama_imap_end_to_end(mocker: MockerFixture, monkeypatch: pytest.Monke
     imap_client = mock_imap_class.return_value
     imap_client.search.return_value = [42]
     imap_client.list_folders.return_value = [
-        (b"\\HasNoChildren", b"/", "AI-Work"),
+        (b"\\HasNoChildren", b"/", "AI-Personal"),
     ]
     envelope = _make_envelope()
     raw = _plain_email_bytes("Please review the Q3 report.")
@@ -67,7 +67,7 @@ def test_ollama_imap_end_to_end(mocker: MockerFixture, monkeypatch: pytest.Monke
     raw_response = MagicMock()
     raw_response.headers = {}
     raw_response.parse.return_value.choices = [
-        MagicMock(message=MagicMock(content="AI-Work: This is a work email."))
+        MagicMock(message=MagicMock(content="AI-Personal: This is a personal email."))
     ]
     mock_openai.return_value.chat.completions.with_raw_response.create.return_value = raw_response
 
@@ -90,17 +90,17 @@ def test_ollama_imap_end_to_end(mocker: MockerFixture, monkeypatch: pytest.Monke
 
     # List AI folders on the mocked account.
     ai_folders = provider.list_ai_folders()
-    assert ai_folders == ["AI-Work"]
+    assert ai_folders == ["AI-Personal"]
 
     # Create an Ollama client from the factory and classify the email.
     ai_client = create_ai_client(llm_config)
     folder, explanation = ai_client.classify_email(message, ai_folders)
-    assert folder == "AI-Work"
-    assert "work" in explanation.lower()
+    assert folder == "AI-Personal"
+    assert "personal" in explanation.lower()
 
     # Move the message into the classified folder.
     assert provider.move_message(message["id"], folder) is True
-    imap_client.copy.assert_called_once_with(42, "AI-Work")
+    imap_client.copy.assert_called_once_with(42, "AI-Personal")
     imap_client.delete_messages.assert_called_once_with([42])
     imap_client.expunge.assert_called_once()
 

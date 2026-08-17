@@ -38,7 +38,7 @@ def test_main_processes_imap_message_and_saves(
 
     mock_imap_client.return_value.search.return_value = [1]
     mock_imap_client.return_value.list_folders.return_value = [
-        (b"\\HasNoChildren", b"/", "AI-Work")
+        (b"\\HasNoChildren", b"/", "AI-Personal")
     ]
     mock_imap_client.return_value.fetch.return_value = {
         1: {
@@ -49,21 +49,21 @@ def test_main_processes_imap_message_and_saves(
     }
 
     mock_openai_client.return_value.parse.return_value.choices = [
-        MagicMock(message=MagicMock(content="Work: this is work"))
+        MagicMock(message=MagicMock(content="Personal: this is personal"))
     ]
 
     output = tmp_path / "results.json"
     main(limit=1, save_to_json=str(output))
 
-    mock_imap_client.return_value.copy.assert_called_once_with(1, "AI-Work")
+    mock_imap_client.return_value.copy.assert_called_once_with(1, "AI-Personal")
     mock_imap_client.return_value.delete_messages.assert_called_once_with([1])
     mock_imap_client.return_value.expunge.assert_called_once()
     mock_imap_client.return_value.logout.assert_called_once()
 
     data = json.loads(output.read_text())
-    assert data["ai_folders"] == ["AI-Work"]
+    assert data["ai_folders"] == ["AI-Personal"]
     assert len(data["messages"]) == 1
-    assert data["messages"][0]["responses"][0]["folder"] == "Work"
+    assert data["messages"][0]["responses"][0]["folder"] == "Personal"
 
 
 def test_main_dry_run_does_not_move(
@@ -76,7 +76,7 @@ def test_main_dry_run_does_not_move(
 
     mock_imap_client.return_value.search.return_value = [1]
     mock_imap_client.return_value.list_folders.return_value = [
-        (b"\\HasNoChildren", b"/", "AI-Work")
+        (b"\\HasNoChildren", b"/", "AI-Personal")
     ]
     mock_imap_client.return_value.fetch.return_value = {
         1: {
@@ -87,7 +87,7 @@ def test_main_dry_run_does_not_move(
     }
 
     mock_openai_client.return_value.parse.return_value.choices = [
-        MagicMock(message=MagicMock(content="Work: this is work"))
+        MagicMock(message=MagicMock(content="Personal: this is personal"))
     ]
 
     main(dry_run=True, limit=1)

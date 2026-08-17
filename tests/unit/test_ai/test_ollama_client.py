@@ -56,14 +56,14 @@ def test_configure_uses_empty_api_key(mocker: MockerFixture):
 
 def test_classify_email_robust_whitespace(mocker: MockerFixture):
     mock_openai = mocker.patch("openai.OpenAI")
-    _set_response(mock_openai, "  Work  :  because  ")
+    _set_response(mock_openai, "  Personal  :  because  ")
     client = OllamaClient()
     client.configure(_make_config())
     folder, explanation = client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work", "Personal"],
+        ["AI-Personal", "AI-Important"],
     )
-    assert folder == "Work"
+    assert folder == "AI-Personal"
     assert explanation == "because"
 
 
@@ -74,7 +74,7 @@ def test_classify_email_no_colon(mocker: MockerFixture):
     client.configure(_make_config())
     folder, explanation = client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work"],
+        ["AI-Personal"],
     )
     assert folder == "invalid"
     assert "could not split" in explanation
@@ -87,7 +87,7 @@ def test_classify_email_no_rate_limit_output(capsys, mocker: MockerFixture):
     client.configure(_make_config())
     client.classify_email(
         {"subject": "S", "from": "a@b.com", "body": "B"},
-        ["Work"],
+        ["AI-Personal"],
         show_rate_limits=True,
     )
     captured = capsys.readouterr()
